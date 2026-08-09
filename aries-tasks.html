@@ -378,8 +378,9 @@
                   <div class="aside-label">Fecha límite</div>
                   <input type="date" id="aside-fecha" onchange="actualizarCampo('fecha_limite',this.value||null)">
                 </div>
-                <div id="aside-admin-actions" class="hidden" style="margin-top:8px;padding-top:12px;border-top:1px solid var(--border);">
+                <div id="aside-admin-actions" class="hidden" style="margin-top:8px;padding-top:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px;">
                   <button class="btn btn-danger btn-sm" style="width:100%;justify-content:center;" onclick="cancelarTarea()">Cancelar tarea</button>
+                  <button class="btn btn-sm" style="width:100%;justify-content:center;background:transparent;border:1px solid var(--danger);color:var(--danger-text);" onclick="eliminarTarea()">🗑 Eliminar tarea</button>
                 </div>
               </div>
               <div style="margin-top:14px;">
@@ -919,6 +920,17 @@ async function cancelarTarea(){
   if(!confirm('¿Cancelar esta tarea?'))return;
   await actualizarCampo('estado','cancelada');
   document.getElementById('aside-estado').value='cancelada';
+}
+
+async function eliminarTarea(){
+  if(!currentTareaId||currentPerfil?.rol!=='admin')return;
+  const tarea=allTareas.find(t=>t.id===currentTareaId);
+  if(!confirm(`¿Eliminar permanentemente la tarea "${tarea?.titulo}"? Esta acción no se puede deshacer.`))return;
+  const{error}=await sb.from('tareas').delete().eq('id',currentTareaId);
+  if(error){showToast('Error al eliminar tarea','error');return;}
+  showToast('Tarea eliminada');
+  volverLista();
+  await cargarTareas();
 }
 
 /* ── Crear tarea ── */
