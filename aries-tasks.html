@@ -423,6 +423,9 @@
         <button class="nav-item" data-view="usuarios" onclick="switchView('usuarios', this)">
           <span class="nav-icon">👥</span> Usuarios
         </button>
+        <button class="nav-item" data-view="empresas" onclick="switchView('empresas', this)">
+          <span class="nav-icon">🏢</span> Empresas
+        </button>
       </div>
     </nav>
     <div class="sidebar-footer">
@@ -466,6 +469,9 @@
           </select>
           <select class="filter-select" id="filter-asignado" onchange="renderLista()">
             <option value="">Todos los usuarios</option>
+          </select>
+          <select class="filter-select" id="filter-empresa" onchange="renderLista()">
+            <option value="">Todas las empresas</option>
           </select>
         </div>
         <div class="task-list" id="task-list"></div>
@@ -525,6 +531,12 @@
                 <select id="aside-asignado" onchange="actualizarCampo('asignado_a', this.value || null)"></select>
               </div>
               <div class="aside-field">
+                <div class="aside-label">Empresa</div>
+                <select id="aside-empresa" onchange="actualizarCampo('id_empresa', this.value ? parseInt(this.value) : null)">
+                  <option value="">Sin empresa</option>
+                </select>
+              </div>
+              <div class="aside-field">
                 <div class="aside-label">Fecha límite</div>
                 <input type="date" id="aside-fecha" onchange="actualizarCampo('fecha_limite', this.value || null)">
               </div>
@@ -557,6 +569,22 @@
               </tr>
             </thead>
             <tbody id="users-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── VISTA: EMPRESAS (ADMIN) ── -->
+      <div id="view-empresas" class="hidden">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+          <table class="users-table">
+            <thead>
+              <tr>
+                <th>Empresa</th>
+                <th>Estado</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="empresas-tbody"></tbody>
           </table>
         </div>
       </div>
@@ -600,6 +628,12 @@
       <label for="nt-asignado">Asignar a</label>
       <select id="nt-asignado">
         <option value="">Sin asignar</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="nt-empresa">Empresa</label>
+      <select id="nt-empresa">
+        <option value="">Sin empresa</option>
       </select>
     </div>
     <div class="modal-footer">
@@ -654,6 +688,26 @@
 </div>
 
 <!-- ══════════════════════════════════════
+     MODAL: NUEVA EMPRESA (ADMIN)
+══════════════════════════════════════ -->
+<div id="modal-empresa" class="modal-backdrop hidden" onclick="closeModalIfBackdrop(event)">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header">
+      <div class="modal-title">Nueva empresa</div>
+      <button class="btn-icon" onclick="cerrarModal('modal-empresa')">✕</button>
+    </div>
+    <div class="field">
+      <label for="emp-nombre">Nombre *</label>
+      <input type="text" id="emp-nombre" placeholder="Nombre de la empresa">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="cerrarModal('modal-empresa')">Cancelar</button>
+      <button class="btn btn-primary" onclick="crearEmpresa()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
      SCRIPT PRINCIPAL
 ══════════════════════════════════════ -->
 <script>
@@ -667,6 +721,7 @@ let currentUser = null;
 let currentPerfil = null;
 let allTareas = [];
 let allPerfiles = [];
+let allEmpresas = [];
 let currentTareaId = null;
 let currentVista = 'todas';
 
@@ -749,6 +804,11 @@ async function iniciarApp() {
   allPerfiles = perfs || [];
   llenarSelectsUsuarios();
 
+  // Cargar empresas para selects
+  const { data: emps } = await sb.from('empresas_tareas').select('*').eq('activo', true).order('nombre');
+  allEmpresas = emps || [];
+  llenarSelectsEmpresas();
+
   // Cargar tareas y mostrar app
   await cargarTareas();
   document.getElementById('screen-login').classList.add('hidden');
@@ -769,6 +829,24 @@ function llenarSelectsUsuarios() {
       const opt = document.createElement('option');
       opt.value = p.id;
       opt.textContent = p.nombre;
+      el.appendChild(opt);
+    });
+    if (val) el.value = val;
+  });
+}
+
+/* ── Llenar selects de empresas ── */
+function llenarSelectsEmpresas() {
+  const selects = ['nt-empresa', 'aside-empresa', 'filter-empresa'];
+  selects.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const val = el.value;
+    while (el.options.length > 1) el.remove(1);
+    allEmpresas.forEach(e => {
+      const opt = document.createElement('option');
+      opt.value = e.id;
+      opt.textContent = e.nombre;
       el.appendChild(opt);
     });
     if (val) el.value = val;
@@ -808,14 +886,14 @@ function switchView(vista, el) {
   if (el) el.classList.add('active');
 
   // Ocultar todas las vistas
-  ['view-lista','view-detalle','view-usuarios'].forEach(v => {
+  ['view-lista','view-detalle','view-usuarios','view-empresas'].forEach(v => {
     document.getElementById(v).classList.add('hidden');
   });
 
   const titulos = {
     todas: 'Todas las tareas', mias: 'Asignadas a mí',
     pronto: 'Vencen pronto', completadas: 'Completadas',
-    usuarios: 'Usuarios'
+    usuarios: 'Usuarios', empresas: 'Empresas'
   };
   document.getElementById('topbar-title').textContent = titulos[vista] || '';
 
@@ -823,9 +901,14 @@ function switchView(vista, el) {
     document.getElementById('view-usuarios').classList.remove('hidden');
     document.getElementById('topbar-actions').innerHTML =
       currentPerfil?.rol === 'admin'
-        ? '<button class="btn btn-primary btn-sm" onclick="abrirModal(\'modal-invite\')">+ Invitar usuario</button>'
+        ? '<button class="btn btn-primary btn-sm" onclick="abrirModal(\'modal-invite\')">+ Agregar usuario</button>'
         : '';
     cargarUsuarios();
+  } else if (vista === 'empresas') {
+    document.getElementById('view-empresas').classList.remove('hidden');
+    document.getElementById('topbar-actions').innerHTML =
+      '<button class="btn btn-primary btn-sm" onclick="abrirModal(\'modal-empresa\')">+ Nueva empresa</button>';
+    cargarEmpresasVista();
   } else {
     document.getElementById('view-lista').classList.remove('hidden');
     document.getElementById('topbar-actions').innerHTML =
@@ -839,6 +922,7 @@ function renderLista() {
   const estado    = document.getElementById('filter-estado').value;
   const prioridad = document.getElementById('filter-prioridad').value;
   const asignado  = document.getElementById('filter-asignado').value;
+  const empresa   = document.getElementById('filter-empresa').value;
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const en7 = new Date(hoy); en7.setDate(en7.getDate() + 7);
 
@@ -858,6 +942,7 @@ function renderLista() {
   if (estado)    tareas = tareas.filter(t => t.estado === estado);
   if (prioridad) tareas = tareas.filter(t => t.prioridad === prioridad);
   if (asignado)  tareas = tareas.filter(t => t.asignado_a === asignado);
+  if (empresa)   tareas = tareas.filter(t => String(t.id_empresa) === empresa);
 
   const container = document.getElementById('task-list');
   if (!tareas.length) {
@@ -880,12 +965,16 @@ function renderLista() {
       return `<span class="date-chip">📅 ${label}</span>`;
     })() : '';
 
+    const emp = allEmpresas.find(e => e.id === t.id_empresa);
+    const empHtml = emp ? `<span style="font-size:11px;color:var(--text-3);">🏢 ${escHtml(emp.nombre)}</span>` : '';
+
     return `<div class="task-card" onclick="abrirDetalle('${t.id}')">
       <div class="task-card-title">${escHtml(t.titulo)}</div>
       <div class="task-card-meta">
         <span class="badge badge-${t.prioridad}">${cap(t.prioridad)}</span>
         <span class="badge badge-${t.estado}">${estadoLabel(t.estado)}</span>
         ${fechaHtml}
+        ${empHtml}
         <div class="avatar" style="margin-left:auto;" title="${asig?.nombre||'Sin asignar'}">${initials}</div>
       </div>
     </div>`;
@@ -913,9 +1002,11 @@ async function abrirDetalle(id) {
   document.getElementById('aside-prioridad').value = t.prioridad;
   document.getElementById('aside-fecha').value     = t.fecha_limite || '';
 
-  // Llenar select asignado (ya tiene opciones)
+  // Llenar select asignado y empresa
   const asigSel = document.getElementById('aside-asignado');
   asigSel.value = t.asignado_a || '';
+  const empSel = document.getElementById('aside-empresa');
+  empSel.value = t.id_empresa || '';
 
   // Admin actions
   if (currentPerfil?.rol === 'admin') {
@@ -1061,20 +1152,23 @@ async function cancelarTarea() {
 async function crearTarea() {
   const titulo = document.getElementById('nt-titulo').value.trim();
   if (!titulo) { showToast('El título es obligatorio', 'error'); return; }
+  const empVal = document.getElementById('nt-empresa').value;
   const { error } = await sb.from('tareas').insert({
     titulo,
-    descripcion: document.getElementById('nt-desc').value.trim() || null,
-    prioridad:   document.getElementById('nt-prioridad').value,
+    descripcion:  document.getElementById('nt-desc').value.trim() || null,
+    prioridad:    document.getElementById('nt-prioridad').value,
     fecha_limite: document.getElementById('nt-fecha').value || null,
-    asignado_a:  document.getElementById('nt-asignado').value || null,
-    creado_por:  currentUser.id,
-    estado:      'pendiente'
+    asignado_a:   document.getElementById('nt-asignado').value || null,
+    id_empresa:   empVal ? parseInt(empVal) : null,
+    creado_por:   currentUser.id,
+    estado:       'pendiente'
   });
   if (error) { showToast('Error al crear tarea', 'error'); return; }
   cerrarModal('modal-nueva');
-  document.getElementById('nt-titulo').value = '';
-  document.getElementById('nt-desc').value   = '';
-  document.getElementById('nt-fecha').value  = '';
+  document.getElementById('nt-titulo').value   = '';
+  document.getElementById('nt-desc').value     = '';
+  document.getElementById('nt-fecha').value    = '';
+  document.getElementById('nt-empresa').value  = '';
   await cargarTareas();
   showToast('Tarea creada');
 }
@@ -1111,6 +1205,52 @@ async function toggleActivo(id, activo) {
   await sb.from('perfiles').update({ activo: !activo }).eq('id', id);
   showToast(activo ? 'Usuario desactivado' : 'Usuario activado');
   cargarUsuarios();
+}
+
+/* ── Vista empresas ── */
+async function cargarEmpresasVista() {
+  const tbody = document.getElementById('empresas-tbody');
+  tbody.innerHTML = '<tr><td colspan="3" style="color:var(--text-3);padding:20px;">Cargando…</td></tr>';
+  const { data } = await sb.from('empresas_tareas').select('*').order('nombre');
+  if (!data?.length) { tbody.innerHTML = '<tr><td colspan="3" style="color:var(--text-3);padding:20px;">Sin empresas registradas.</td></tr>'; return; }
+  tbody.innerHTML = data.map(e => {
+    const status = e.activo
+      ? '<span class="status-dot"><span class="dot dot-on"></span>Activa</span>'
+      : '<span class="status-dot"><span class="dot dot-off"></span>Inactiva</span>';
+    const acciones = `<button class="btn btn-ghost btn-sm" onclick="toggleActivoEmpresa(${e.id}, ${e.activo})">${e.activo ? 'Desactivar' : 'Activar'}</button>`;
+    return `<tr>
+      <td style="font-weight:500;">🏢 ${escHtml(e.nombre)}</td>
+      <td>${status}</td>
+      <td>${acciones}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function crearEmpresa() {
+  const nombre = document.getElementById('emp-nombre').value.trim();
+  if (!nombre) { showToast('El nombre es obligatorio', 'error'); return; }
+  const { error } = await sb.from('empresas_tareas').insert({ nombre });
+  if (error) {
+    showToast(error.message.includes('unique') ? 'Ya existe una empresa con ese nombre' : 'Error al crear empresa', 'error');
+    return;
+  }
+  cerrarModal('modal-empresa');
+  document.getElementById('emp-nombre').value = '';
+  showToast('Empresa creada');
+  // Recargar lista global y selects
+  const { data } = await sb.from('empresas_tareas').select('*').eq('activo', true).order('nombre');
+  allEmpresas = data || [];
+  llenarSelectsEmpresas();
+  cargarEmpresasVista();
+}
+
+async function toggleActivoEmpresa(id, activo) {
+  await sb.from('empresas_tareas').update({ activo: !activo }).eq('id', id);
+  showToast(activo ? 'Empresa desactivada' : 'Empresa activada');
+  const { data } = await sb.from('empresas_tareas').select('*').eq('activo', true).order('nombre');
+  allEmpresas = data || [];
+  llenarSelectsEmpresas();
+  cargarEmpresasVista();
 }
 
 
