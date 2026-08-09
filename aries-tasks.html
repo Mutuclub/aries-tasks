@@ -615,31 +615,40 @@
 <div id="modal-invite" class="modal-backdrop hidden" onclick="closeModalIfBackdrop(event)">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">Invitar usuario</div>
+      <div class="modal-title">Agregar usuario</div>
       <button class="btn-icon" onclick="cerrarModal('modal-invite')">✕</button>
     </div>
-    <div class="field">
-      <label for="inv-nombre">Nombre completo *</label>
-      <input type="text" id="inv-nombre" placeholder="Nombre Apellido">
+    <p style="font-size:13px;color:var(--text-2);line-height:1.6;margin-bottom:16px;">
+      Los usuarios se crean directamente en Supabase. Sigue estos pasos:
+    </p>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;">
+      <div style="display:flex;gap:12px;align-items:flex-start;">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">1</div>
+        <div style="font-size:13px;color:var(--text-2);line-height:1.5;">
+          Ve a <strong style="color:var(--text);">tareas-dev → Authentication → Users</strong> y haz clic en <strong style="color:var(--text);">Add user</strong>. Ingresa el correo y contraseña, activa <em>Auto Confirm User</em> y guarda.
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start;">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">2</div>
+        <div style="font-size:13px;color:var(--text-2);line-height:1.5;">
+          Ve a <strong style="color:var(--text);">Table Editor → perfiles</strong>, busca el registro nuevo (el <em>nombre</em> aparece como el correo) y edita el campo <strong style="color:var(--text);">nombre</strong> con el nombre real del usuario.
+        </div>
+      </div>
+      <div style="display:flex;gap:12px;align-items:flex-start;">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;">3</div>
+        <div style="font-size:13px;color:var(--text-2);line-height:1.5;">
+          Si el usuario debe ser <strong style="color:var(--text);">Admin</strong>, edita también el campo <strong style="color:var(--text);">rol</strong> y cámbialo de <em>colaborador</em> a <em>admin</em>.
+        </div>
+      </div>
     </div>
-    <div class="field">
-      <label for="inv-email">Correo *</label>
-      <input type="email" id="inv-email" placeholder="usuario@artsanova.mx">
-    </div>
-    <div class="field">
-      <label for="inv-pass">Contraseña temporal *</label>
-      <input type="text" id="inv-pass" placeholder="Mínimo 6 caracteres">
-    </div>
-    <div class="field">
-      <label for="inv-rol">Rol</label>
-      <select id="inv-rol">
-        <option value="colaborador">Colaborador</option>
-        <option value="admin">Admin</option>
-      </select>
+    <div style="background:var(--accent-bg);border:1px solid #bfdbfe;border-radius:var(--radius);padding:10px 14px;font-size:12px;color:var(--accent-text);margin-bottom:20px;">
+      Cuando termines, regresa aquí y recarga la página para ver al nuevo usuario en la lista.
     </div>
     <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="cerrarModal('modal-invite')">Cancelar</button>
-      <button class="btn btn-primary" onclick="invitarUsuario()">Crear usuario</button>
+      <button class="btn btn-ghost" onclick="cerrarModal('modal-invite')">Cerrar</button>
+      <a href="https://supabase.com/dashboard/project/ilrgdybedqhdtmockxue/auth/users" target="_blank" class="btn btn-primary" style="text-decoration:none;">
+        Ir a Supabase →
+      </a>
     </div>
   </div>
 </div>
@@ -1104,29 +1113,7 @@ async function toggleActivo(id, activo) {
   cargarUsuarios();
 }
 
-/* ── Invitar usuario (admin) ── */
-async function invitarUsuario() {
-  const nombre = document.getElementById('inv-nombre').value.trim();
-  const email  = document.getElementById('inv-email').value.trim();
-  const pass   = document.getElementById('inv-pass').value.trim();
-  const rol    = document.getElementById('inv-rol').value;
-  if (!nombre || !email || !pass) { showToast('Completa todos los campos', 'error'); return; }
 
-  // Crear usuario en Auth + perfil (via trigger)
-  const { data, error } = await sb.auth.admin.createUser({
-    email, password: pass,
-    user_metadata: { nombre, rol },
-    email_confirm: true
-  });
-  if (error) {
-    // Fallback: signup normal (sin admin API desde el cliente)
-    const { error: e2 } = await sb.auth.signUp({ email, password: pass, options: { data: { nombre, rol } } });
-    if (e2) { showToast('Error: ' + e2.message, 'error'); return; }
-  }
-  cerrarModal('modal-invite');
-  showToast('Usuario creado. Puede iniciar sesión con las credenciales proporcionadas.');
-  await cargarUsuarios();
-}
 
 /* ── Modales ── */
 function abrirModal(id) { document.getElementById(id).classList.remove('hidden'); }
