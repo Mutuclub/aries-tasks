@@ -447,8 +447,8 @@
       </div>
       <div class="field"><label for="nt-fecha">Fecha límite</label><input type="date" id="nt-fecha"></div>
     </div>
-    <div class="field"><label for="nt-asignado">Asignar a</label><select id="nt-asignado"><option value="">Sin asignar</option></select></div>
-    <div class="field"><label for="nt-empresa">Empresa</label><select id="nt-empresa"><option value="">Sin empresa</option></select></div>
+    <div class="field"><label for="nt-asignado">Asignar a *</label><select id="nt-asignado"><option value="">Sin asignar</option></select></div>
+    <div class="field"><label for="nt-empresa">Empresa *</label><select id="nt-empresa"><option value="">Sin empresa</option></select></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="cerrarModal('modal-nueva')">Cancelar</button>
       <button class="btn btn-primary" onclick="crearTarea()">Crear tarea</button>
@@ -961,7 +961,10 @@ async function eliminarTarea(){
 async function crearTarea(){
   const titulo=document.getElementById('nt-titulo').value.trim();
   if(!titulo){showToast('El título es obligatorio','error');return;}
+  const asignadoVal=document.getElementById('nt-asignado').value;
+  if(!asignadoVal){showToast('Debes asignar la tarea a un usuario','error');return;}
   const empVal=document.getElementById('nt-empresa').value;
+  if(!empVal){showToast('Debes seleccionar una empresa','error');return;}
   const{error}=await sb.from('tareas').insert({
     titulo,descripcion:document.getElementById('nt-desc').value.trim()||null,
     prioridad:document.getElementById('nt-prioridad').value,
