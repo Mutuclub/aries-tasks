@@ -483,6 +483,29 @@
   </div>
 </div>
 
+<!-- MODAL: CAMBIAR CONTRASEÑA -->
+<div id="modal-pass" class="modal-backdrop hidden" onclick="closeModalIfBackdrop(event)">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header">
+      <div class="modal-title">Cambiar contraseña</div>
+      <button class="btn-icon" onclick="cerrarModal('modal-pass')">✕</button>
+    </div>
+    <p id="pass-nombre-label" style="font-size:13px;color:var(--text-2);margin-bottom:16px;"></p>
+    <div class="field">
+      <label for="pass-nueva">Nueva contraseña *</label>
+      <input type="password" id="pass-nueva" placeholder="Mínimo 6 caracteres">
+    </div>
+    <div class="field">
+      <label for="pass-confirma">Confirmar contraseña *</label>
+      <input type="password" id="pass-confirma" placeholder="Repite la contraseña">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="cerrarModal('modal-pass')">Cancelar</button>
+      <button class="btn btn-primary" onclick="cambiarPassword()">Guardar contraseña</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL: NUEVA EMPRESA -->
 <div id="modal-empresa" class="modal-backdrop hidden" onclick="closeModalIfBackdrop(event)">
   <div class="modal" style="max-width:400px;">
@@ -498,6 +521,7 @@
 <script>
 const SUPA_URL = 'https://ilrgdybedqhdtmockxue.supabase.co';
 const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlscmdkeWJlZHFoZHRtb2NreHVlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODYzMDQ1MDUsImV4cCI6MjEwMTg4MDUwNX0.8Yfpz725H-aBkRIOmH3U3G_kLo_rbERm4frrWZ_0L28';
+const SUPA_SERVICE = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlscmdkeWJlZHFoZHRtb2NreHVlIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4NjMwNDUwNSwiZXhwIjoyMTAxODgwNTA1fQ.wOB3hZtidgo5jPScdMeENQSpTcTQfo4VeIe553Ce7-Q';
 const { createClient } = supabase;
 const sb = createClient(SUPA_URL, SUPA_KEY);
 
@@ -957,20 +981,79 @@ async function crearTarea(){
 async function cargarUsuarios(){
   const tbody=document.getElementById('users-tbody');
   tbody.innerHTML='<tr><td colspan="5" style="color:var(--text-3);padding:20px;">Cargando…</td></tr>';
+  // Traer perfiles + correo via Admin API
+  let correos={};
+  try{
+    const r=await fetch(`${SUPA_URL}/auth/v1/admin/users?per_page=200`,{headers:{'apikey':SUPA_SERVICE,'Authorization':`Bearer ${SUPA_SERVICE}`}});
+    const d=await r.json();
+    (d.users||[]).forEach(u=>{ correos[u.id]=u.email; });
+  }catch(e){}
   const{data}=await sb.from('perfiles').select('*').order('nombre');
   if(!data?.length){tbody.innerHTML='';return;}
   tbody.innerHTML=data.map(u=>{
     const ini=u.nombre.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase();
     const rolPill=u.rol==='admin'?'<span class="role-pill role-admin">Admin</span>':'<span class="role-pill role-col">Colaborador</span>';
     const status=u.activo?'<span class="status-dot"><span class="dot dot-on"></span>Activo</span>':'<span class="status-dot"><span class="dot dot-off"></span>Inactivo</span>';
-    const acc=currentPerfil?.rol==='admin'&&u.id!==currentUser.id?`<button class="btn btn-ghost btn-sm" onclick="toggleActivo('${u.id}',${u.activo})">${u.activo?'Desactivar':'Activar'}</button>`:'';
-    return`<tr><td><div class="flex items-center gap-2"><div class="avatar">${ini}</div>${escHtml(u.nombre)}</div></td><td style="color:var(--text-3);font-size:12px;">${escHtml(u.id.substring(0,16))}…</td><td>${rolPill}</td><td>${status}</td><td>${acc}</td></tr>`;
+    const email=correos[u.id]||'—';
+    const esOtro=currentPerfil?.rol==='admin'&&u.id!==currentUser.id;
+    const btnToggle=esOtro?`<button class="btn btn-ghost btn-sm" onclick="toggleActivo('${u.id}',${u.activo})">${u.activo?'Desactivar':'Activar'}</button>`:'';
+    const btnPass=esOtro?`<button class="btn btn-ghost btn-sm" onclick="abrirCambiarPass('${u.id}','${escHtml(u.nombre)}')">🔑 Contraseña</button>`:'';
+    return`<tr>
+      <td><div class="flex items-center gap-2"><div class="avatar">${ini}</div>${escHtml(u.nombre)}</div></td>
+      <td style="color:var(--text-3);font-size:12px;">${email}</td>
+      <td>${rolPill}</td>
+      <td>${status}</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap;">${btnToggle}${btnPass}</td>
+    </tr>`;
   }).join('');
 }
 
 async function toggleActivo(id,activo){
   await sb.from('perfiles').update({activo:!activo}).eq('id',id);
   showToast(activo?'Usuario desactivado':'Usuario activado');cargarUsuarios();
+}
+
+let passUserId = null;
+function abrirCambiarPass(id, nombre){
+  passUserId = id;
+  document.getElementById('pass-nombre-label').textContent = `Usuario: ${nombre}`;
+  document.getElementById('pass-nueva').value = '';
+  document.getElementById('pass-confirma').value = '';
+  abrirModal('modal-pass');
+}
+
+async function cambiarPassword(){
+  const nueva    = document.getElementById('pass-nueva').value;
+  const confirma = document.getElementById('pass-confirma').value;
+  if(!nueva || nueva.length < 6){ showToast('La contraseña debe tener al menos 6 caracteres','error'); return; }
+  if(nueva !== confirma){ showToast('Las contraseñas no coinciden','error'); return; }
+  if(!passUserId){ showToast('Error: usuario no identificado','error'); return; }
+
+  const btn = document.querySelector('#modal-pass .btn-primary');
+  btn.disabled = true; btn.textContent = 'Guardando…';
+
+  try{
+    const r = await fetch(`${SUPA_URL}/auth/v1/admin/users/${passUserId}`, {
+      method: 'PUT',
+      headers: {
+        'apikey': SUPA_SERVICE,
+        'Authorization': `Bearer ${SUPA_SERVICE}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ password: nueva })
+    });
+    if(r.ok){
+      cerrarModal('modal-pass');
+      showToast('Contraseña actualizada correctamente');
+    } else {
+      const err = await r.json();
+      showToast(err.message || 'Error al actualizar contraseña','error');
+    }
+  } catch(e){
+    showToast('Error de conexión','error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Guardar contraseña';
+  }
 }
 
 /* ── Empresas ── */
