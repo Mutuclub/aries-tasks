@@ -840,8 +840,8 @@ async function abrirDetalle(id){
   document.getElementById('view-detalle').classList.remove('hidden');
   document.getElementById('detalle-badges').innerHTML=`<span class="badge badge-${t.prioridad}">${cap(t.prioridad)}</span><span class="badge badge-${t.estado}">${estadoLabel(t.estado)}</span>`;
   const tituloEl=document.getElementById('detalle-titulo');
-  tituloEl.textContent=t.titulo;tituloEl.title='Clic para editar';
   const descEl=document.getElementById('detalle-desc');
+  tituloEl.textContent=t.titulo;
   if(t.descripcion){descEl.textContent=t.descripcion;descEl.classList.remove('detail-desc-placeholder');}
   else{descEl.innerHTML='<em>Sin descripción — clic para agregar</em>';descEl.classList.add('detail-desc-placeholder');}
   document.getElementById('aside-estado').value=t.estado;
@@ -855,8 +855,6 @@ async function abrirDetalle(id){
 
   // Bloquear edición si colaborador y la tarea no le pertenece
   const puedeEditar=currentPerfil?.rol==='admin'||t.asignado_a===currentUser.id;
-  const tituloEl=document.getElementById('detalle-titulo');
-  const descEl=document.getElementById('detalle-desc');
   if(puedeEditar){
     tituloEl.onclick=editarTitulo;tituloEl.title='Clic para editar';tituloEl.style.cursor='pointer';
     descEl.onclick=editarDesc;descEl.style.cursor='pointer';
