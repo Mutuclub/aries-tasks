@@ -852,6 +852,26 @@ async function abrirDetalle(id){
   document.getElementById('aside-asignado-por').textContent=creadoPorPerfil?.nombre||'—';
   document.getElementById('aside-empresa').value=t.id_empresa||'';
   if(currentPerfil?.rol==='admin') document.getElementById('aside-admin-actions').classList.remove('hidden');
+
+  // Bloquear edición si colaborador y la tarea no le pertenece
+  const puedeEditar=currentPerfil?.rol==='admin'||t.asignado_a===currentUser.id;
+  const tituloEl=document.getElementById('detalle-titulo');
+  const descEl=document.getElementById('detalle-desc');
+  if(puedeEditar){
+    tituloEl.onclick=editarTitulo;tituloEl.title='Clic para editar';tituloEl.style.cursor='pointer';
+    descEl.onclick=editarDesc;descEl.style.cursor='pointer';
+  } else {
+    tituloEl.onclick=null;tituloEl.title='';tituloEl.style.cursor='default';
+    descEl.onclick=null;descEl.style.cursor='default';
+  }
+  ['aside-estado','aside-prioridad','aside-fecha','aside-asignado','aside-empresa'].forEach(id=>{
+    const el=document.getElementById(id);if(el)el.disabled=!puedeEditar;
+  });
+  const btnSubir=document.querySelector('#view-detalle button[onclick*="file-input"]');
+  if(btnSubir)btnSubir.disabled=!puedeEditar;
+  const btnComentario=document.querySelector('button[onclick="guardarComentario()"]');
+  if(btnComentario)btnComentario.disabled=!puedeEditar;
+  document.getElementById('nuevo-comentario').disabled=!puedeEditar;
   await Promise.all([cargarComentarios(id),cargarArchivos(id),cargarHistorial(id)]);
 }
 
