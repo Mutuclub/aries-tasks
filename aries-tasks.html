@@ -313,6 +313,10 @@
             <select class="filter-select" id="filter-empresa" onchange="renderLista()">
               <option value="">Todas las empresas</option>
             </select>
+            <select class="filter-select" id="filter-orden" onchange="renderLista()">
+              <option value="fecha">Ordenar por fecha límite</option>
+              <option value="asignado">Ordenar por persona asignada</option>
+            </select>
           </div>
           <div class="task-list" id="task-list"></div>
         </div>
@@ -363,6 +367,10 @@
                     <option value="media">Media</option>
                     <option value="baja">Baja</option>
                   </select>
+                </div>
+                <div class="aside-field">
+                  <div class="aside-label">Asignado por</div>
+                  <div id="aside-asignado-por" style="font-size:13px;color:var(--text-2);padding:4px 0;"></div>
                 </div>
                 <div class="aside-field">
                   <div class="aside-label">Asignado a</div>
@@ -738,8 +746,26 @@ function renderLista(){
     container.innerHTML=`<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-title">${busqueda?'Sin resultados para "'+escHtml(busqueda)+'"':'No hay tareas aquí'}</div><div>${busqueda?'Intenta con otras palabras':'Crea una nueva tarea para empezar'}</div></div>`;
     return;
   }
+  // Ordenamiento
+  const orden=document.getElementById('filter-orden')?.value||'fecha';
+  if(orden==='fecha'){
+    tareas.sort((a,b)=>{
+      if(!a.fecha_limite&&!b.fecha_limite)return 0;
+      if(!a.fecha_limite)return 1;
+      if(!b.fecha_limite)return -1;
+      return a.fecha_limite.localeCompare(b.fecha_limite);
+    });
+  } else if(orden==='asignado'){
+    tareas.sort((a,b)=>{
+      const na=allPerfiles.find(p=>p.id===a.asignado_a)?.nombre||'';
+      const nb=allPerfiles.find(p=>p.id===b.asignado_a)?.nombre||'';
+      return na.localeCompare(nb,'es');
+    });
+  }
+
   container.innerHTML=tareas.map(t=>{
     const asig=allPerfiles.find(p=>p.id===t.asignado_a);
+    const creadoPor=allPerfiles.find(p=>p.id===t.creado_por);
     const initials=asig?asig.nombre.split(' ').map(w=>w[0]).slice(0,2).join('').toUpperCase():'—';
     const emp=allEmpresas.find(e=>e.id===t.id_empresa);
     const fechaHtml=t.fecha_limite?(()=>{
@@ -750,13 +776,15 @@ function renderLista(){
       return`<span class="date-chip">📅 ${label}</span>`;
     })():'';
     const empHtml=emp?`<span style="font-size:11px;color:var(--text-3);">🏢 ${escHtml(emp.nombre)}</span>`:'';
+    const asignadoHtml=`<span style="font-size:11px;color:var(--text-3);">→ ${escHtml(asig?.nombre||'Sin asignar')}</span>`;
+    const creadoPorHtml=creadoPor?`<span style="font-size:11px;color:var(--text-3);">Por: ${escHtml(creadoPor.nombre)}</span>`:'';
     return`<div class="task-card" onclick="abrirDetalle('${t.id}')">
       <div class="task-card-title">${escHtml(t.titulo)}</div>
       <div class="task-card-meta">
         <span class="badge badge-${t.prioridad}">${cap(t.prioridad)}</span>
         <span class="badge badge-${t.estado}">${estadoLabel(t.estado)}</span>
         ${fechaHtml}${empHtml}
-        <div class="avatar" style="margin-left:auto;" title="${asig?.nombre||'Sin asignar'}">${initials}</div>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:6px;">${creadoPorHtml}${asignadoHtml}<div class="avatar" title="${asig?.nombre||'Sin asignar'}">${initials}</div></div>
       </div>
     </div>`;
   }).join('');
@@ -820,6 +848,8 @@ async function abrirDetalle(id){
   document.getElementById('aside-prioridad').value=t.prioridad;
   document.getElementById('aside-fecha').value=t.fecha_limite||'';
   document.getElementById('aside-asignado').value=t.asignado_a||'';
+  const creadoPorPerfil=allPerfiles.find(p=>p.id===t.creado_por);
+  document.getElementById('aside-asignado-por').textContent=creadoPorPerfil?.nombre||'—';
   document.getElementById('aside-empresa').value=t.id_empresa||'';
   if(currentPerfil?.rol==='admin') document.getElementById('aside-admin-actions').classList.remove('hidden');
   await Promise.all([cargarComentarios(id),cargarArchivos(id),cargarHistorial(id)]);
