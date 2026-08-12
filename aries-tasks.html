@@ -378,7 +378,7 @@
                 </div>
                 <div class="aside-field">
                   <div class="aside-label">Empresa</div>
-                  <select id="aside-empresa" onchange="actualizarCampo('id_empresa',this.value?parseInt(this.value):null)">
+                  <select id="aside-empresa" onchange="actualizarCampo('id_empresa',this.value||null)">
                     <option value="">Sin empresa</option>
                   </select>
                 </div>
@@ -1018,7 +1018,7 @@ async function crearTarea(){
     prioridad:document.getElementById('nt-prioridad').value,
     fecha_limite:document.getElementById('nt-fecha').value||null,
     asignado_a:document.getElementById('nt-asignado').value||null,
-    id_empresa:empVal?parseInt(empVal):null,
+    id_empresa:empVal||null,
     creado_por:currentUser.id,estado:'pendiente'
   });
   if(error){showToast('Error al crear tarea','error');return;}
